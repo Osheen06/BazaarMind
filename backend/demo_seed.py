@@ -14,8 +14,18 @@ DEMO_MARKET = {
     "name": "INA Market",
     "area": "South Delhi, Delhi NCR",
     "community": "Green Meadows RWA (demo community)",
+    "lat": 28.5687,
+    "lng": 77.2094,
     "synthetic": True,
 }
+
+# Extra markets for location-based discovery (no seeded signals — discovery only)
+EXTRA_MARKETS = [
+    {"id": "demo-sarojini", "name": "Sarojini Nagar Market", "area": "South West Delhi, Delhi NCR",
+     "community": "Sarojini RWA (demo)", "lat": 28.5775, "lng": 77.1969, "synthetic": True},
+    {"id": "demo-ghazipur", "name": "Ghazipur Mandi", "area": "East Delhi, Delhi NCR",
+     "community": "Kondli RWA (demo)", "lat": 28.6255, "lng": 77.3255, "synthetic": True},
+]
 
 DEMO_VENDORS = [
     {"id": "v1", "name": "Ramesh Sabzi Wala", "stall": "Stall 3"},
@@ -106,6 +116,7 @@ def _build_signals():
                 "status": "confirmed",
                 "corroborationCount": vobs,
                 "synthetic": True,
+                "dataSource": "DEMO",
             })
         # anonymous shopper demand signals
         for j in range(sobs):
@@ -132,6 +143,7 @@ def _build_signals():
                 "status": "confirmed",
                 "corroborationCount": sobs,
                 "synthetic": True,
+                "dataSource": "DEMO",
             })
     return signals
 
@@ -171,6 +183,7 @@ async def seed_if_empty(db):
     existing = await db.markets.count_documents({})
     if existing == 0:
         await db.markets.insert_one({**DEMO_MARKET})
+        await db.markets.insert_many([{**m} for m in EXTRA_MARKETS])
         await db.vendors.insert_many([{**v, "marketId": DEMO_MARKET["id"]} for v in DEMO_VENDORS])
         await db.products.insert_many([{**p, "id": p["name"].lower().replace(" ", "-")} for p in DEMO_PRODUCTS])
 

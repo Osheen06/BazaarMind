@@ -11,6 +11,8 @@ import Shop from "./pages/Shop";
 import Vendor from "./pages/Vendor";
 import Ask from "./pages/Ask";
 import PilotBusiness from "./pages/PilotBusiness";
+import PilotOnboard from "./pages/PilotOnboard";
+import WhatsAppChannel from "./pages/WhatsAppChannel";
 import More from "./pages/More";
 
 const withShell = (el) => <Layout>{el}</Layout>;
@@ -28,6 +30,8 @@ export default function App() {
             <Route path="/vendor" element={withShell(<Vendor />)} />
             <Route path="/ask" element={withShell(<Ask />)} />
             <Route path="/business" element={withShell(<PilotBusiness />)} />
+            <Route path="/whatsapp" element={withShell(<WhatsAppChannel />)} />
+            <Route path="/join" element={withShell(<PilotOnboard />)} />
             <Route path="/more" element={withShell(<More />)} />
           </Routes>
           <Toaster position="top-center" richColors />

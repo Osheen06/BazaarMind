@@ -13,7 +13,7 @@ const SUGGESTIONS = [
 ];
 
 export default function Shop() {
-  const { marketId, refreshPulse } = useApp();
+  const { marketId, refreshPulse, participant } = useApp();
   const [messages, setMessages] = useState([
     {
       role: "assistant",
@@ -38,7 +38,7 @@ export default function Shop() {
     setBusy(true);
     trackEvent("shopping_list_created");
     try {
-      const res = await parseShoppingList(value, marketId);
+      const res = await parseShoppingList(value, marketId, participant?.id);
       if (!res.ok) {
         setMessages((m) => [...m, { role: "assistant", type: "text", text: res.error }]);
       } else {

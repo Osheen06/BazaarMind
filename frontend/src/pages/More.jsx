@@ -1,9 +1,8 @@
 import React, { useEffect } from "react";
-import { Network, LineChart, Home, Sparkles, ShieldCheck, Languages, Image, ScanText, MessageSquareText, Settings2 } from "lucide-react";
+import { Network, LineChart, Home, Sparkles, ShieldCheck, Languages, Image, ScanText, MessageSquareText, Settings2, MessageCircle, UserPlus, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { MoreLinkRow } from "../components/Layout";
 import { useApp } from "../context/AppContext";
-import { Switch } from "../components/ui/switch";
 import { SectionLabel, Chip } from "../components/atoms";
 import { trackEvent } from "../lib/api";
 
@@ -34,7 +33,7 @@ const RULES = [
 
 export default function More() {
   const navigate = useNavigate();
-  const { demoMode, setDemoMode, markets, marketId, setMarketId, currentMarket } = useApp();
+  const { markets, marketId, setMarketId, currentMarket, participant, clearParticipant, dataSource } = useApp();
   useEffect(() => { trackEvent("more_viewed"); }, []);
 
   return (
@@ -52,8 +51,10 @@ export default function More() {
         <SectionLabel className="mb-2">Explore</SectionLabel>
         <div className="grid sm:grid-cols-2 gap-3">
           <MoreLinkRow to="/network" icon={Network} title="Market Network" desc="Demand & supply as one living graph" testid="more-network" />
-          <MoreLinkRow to="/business" icon={LineChart} title="Pilot & Business" desc="Pilot design, model, moat, roadmap" testid="more-business" />
-          <MoreLinkRow to="/pulse" icon={Sparkles} title="Market Pulse" desc="Today's synthetic market signals" testid="more-pulse" />
+          <MoreLinkRow to="/whatsapp" icon={MessageCircle} title="WhatsApp Channel" desc="Integration-ready — production credentials required" testid="more-whatsapp" />
+          <MoreLinkRow to="/join" icon={UserPlus} title="Join the Pilot" desc="Onboard as a shopper or vendor in under a minute" testid="more-join" />
+          <MoreLinkRow to="/business" icon={LineChart} title="Pilot & Business" desc="Pilot design, live status, model, moat" testid="more-business" />
+          <MoreLinkRow to="/pulse" icon={Sparkles} title="Market Pulse" desc="Today's market signals" testid="more-pulse" />
           <MoreLinkRow to="/" icon={Home} title="Home" desc="The Market That Thinks as One" testid="more-home" />
         </div>
       </div>
@@ -99,11 +100,27 @@ export default function More() {
         <div className="bg-white border border-[#E5DEC9] rounded-2xl divide-y divide-[#F0EBDE]">
           <div className="flex items-center justify-between px-4 py-4">
             <div>
-              <div className="font-semibold text-[#1E2022] text-sm flex items-center gap-2"><Settings2 className="h-4 w-4" /> Demo mode</div>
-              <div className="text-xs text-[#5C6360]">Show synthetic market signals. Gemini interpretation stays live.</div>
+              <div className="font-semibold text-[#1E2022] text-sm flex items-center gap-2"><Settings2 className="h-4 w-4" /> Data source</div>
+              <div className="text-xs text-[#5C6360]">
+                {dataSource === "PILOT"
+                  ? `Pilot mode — you joined as ${participant?.role}. Your contributions are labelled PILOT.`
+                  : "Demo mode — synthetic market signals. Join the pilot to contribute real (PILOT) data. Gemini stays live."}
+              </div>
             </div>
-            <Switch checked={demoMode} onCheckedChange={setDemoMode} data-testid="demo-mode-toggle" />
+            <Chip tone={dataSource === "PILOT" ? "green" : "orange"} data-testid="data-source-chip">{dataSource}</Chip>
           </div>
+          {participant && (
+            <div className="flex items-center justify-between px-4 py-4">
+              <div>
+                <div className="font-semibold text-[#1E2022] text-sm">Pilot participant</div>
+                <div className="text-xs text-[#5C6360]">{participant.name || "Anonymous"} · {participant.role}</div>
+              </div>
+              <button onClick={clearParticipant} data-testid="leave-pilot-button"
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#E5DEC9] bg-white px-3 py-1.5 text-xs font-semibold text-[#B4571E] hover:bg-[#F7F4EE]">
+                <LogOut className="h-3.5 w-3.5" /> Leave pilot
+              </button>
+            </div>
+          )}
           <div className="px-4 py-4">
             <div className="font-semibold text-[#1E2022] text-sm mb-1">Market</div>
             <select value={marketId} onChange={(e) => setMarketId(e.target.value)} data-testid="market-selector"

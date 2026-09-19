@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { getPilotMetrics, trackEvent } from "../lib/api";
+import { getPilotMetrics, getPilotStatus, trackEvent } from "../lib/api";
 import {
-  Target, Users, Store, Building2, TrendingUp, Layers, Map, ShoppingCart, Truck, Network, Quote,
+  Target, Users, Store, Building2, TrendingUp, Layers, Map, ShoppingCart, Truck, Network, Quote, UserPlus, Activity,
 } from "lucide-react";
 import { SectionLabel, Chip } from "../components/atoms";
 
 const TABS = [
   { id: "pilot", label: "Pilot" },
+  { id: "status", label: "Live Status" },
+  { id: "onboard", label: "Onboard" },
   { id: "model", label: "Business Model" },
   { id: "moat", label: "Moat" },
   { id: "roadmap", label: "Roadmap" },
@@ -42,12 +45,58 @@ export default function PilotBusiness() {
 
       <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
         {tab === "pilot" && <Pilot pilot={pilot} />}
+        {tab === "status" && <LiveStatus />}
+        {tab === "onboard" && <Onboard />}
         {tab === "model" && <Model />}
         {tab === "moat" && <Moat />}
         {tab === "roadmap" && <Roadmap />}
         {tab === "positioning" && <Positioning />}
         {tab === "research" && <Research />}
       </motion.div>
+    </div>
+  );
+}
+
+function LiveStatus() {
+  const [status, setStatus] = useState(null);
+  useEffect(() => { getPilotStatus().then(setStatus).catch(() => {}); }, []);
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-[#1E2022]"><Activity className="h-4 w-4 text-[#1E5631]" /> Database-derived pilot metrics</div>
+        <Chip tone={status?.hasPilotData ? "green" : "orange"}>{status?.environment || "DEMO"} environment</Chip>
+      </div>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3" data-testid="pilot-status-metrics">
+        {(status?.metrics || []).map((m) => (
+          <div key={m.name} className="bg-white border border-[#E5DEC9] rounded-2xl p-4">
+            <div className="text-xs font-semibold tracking-wide uppercase text-[#5C6360]">{m.name}</div>
+            <div className="font-display text-2xl font-bold text-[#1E2022] mt-1">{m.display}</div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-xs text-[#8A8A82]">
+        These read live from the database. Until real pilot participants join, they honestly show "Awaiting pilot data" — no fabricated traction.
+      </p>
+    </div>
+  );
+}
+
+function Onboard() {
+  const navigate = useNavigate();
+  return (
+    <div className="max-w-xl">
+      <div className="rounded-2xl bg-white border border-[#E5DEC9] p-6">
+        <div className="h-11 w-11 rounded-xl bg-[#1E5631]/8 flex items-center justify-center text-[#1E5631]"><UserPlus className="h-5 w-5" /></div>
+        <h2 className="font-display text-xl font-bold text-[#1E2022] mt-3">Run the 14-day INA Market pilot</h2>
+        <p className="text-sm text-[#5C6360] mt-1">
+          Onboard 20–50 households and 10–15 vendors from one community. Onboarding is under a minute and drops the participant
+          straight into the real experience. Their contributions are labelled PILOT (kept separate from demo signals).
+        </p>
+        <button onClick={() => navigate("/join")} data-testid="onboard-cta"
+          className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#1E5631] text-[#FDFBF7] px-5 py-2.5 text-sm font-semibold hover:bg-[#194727]">
+          <UserPlus className="h-4 w-4" /> Open onboarding
+        </button>
+      </div>
     </div>
   );
 }

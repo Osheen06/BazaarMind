@@ -15,7 +15,7 @@ const QUESTIONS = [
 ];
 
 export default function Ask() {
-  const { marketId } = useApp();
+  const { marketId, dataSource } = useApp();
   const [messages, setMessages] = useState([
     { role: "assistant", text: "Ask me anything about your market today. I answer only from the signals I actually have — and I'll say so when I don't have enough." },
   ]);
@@ -35,7 +35,7 @@ export default function Ask() {
     setBusy(true);
     trackEvent("ask_bazaarmind_used");
     try {
-      const res = await askBazaar(value, marketId);
+      const res = await askBazaar(value, marketId, dataSource);
       setMessages((m) => [...m, { role: "assistant", text: res.ok ? res.answer : res.error, live: res.ok }]);
     } catch {
       setMessages((m) => [...m, { role: "assistant", text: "BazaarMind couldn't interpret that right now. Please try again." }]);

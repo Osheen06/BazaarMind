@@ -7,7 +7,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "../components/ui/dialog";
-import { interpretSignal, createSignal, getVendorDemand, listSignals, trackEvent } from "../lib/api";
+import { interpretSignal, createSignal, getVendorDemand, listSignals, transcribeAudio, getVoiceStatus, trackEvent } from "../lib/api";
 import { useApp } from "../context/AppContext";
 import { ListeningLoader } from "../components/Loading";
 import { Chip, ConfidenceBadge } from "../components/atoms";
@@ -21,7 +21,7 @@ const EXAMPLES = [
 ];
 
 export default function Vendor() {
-  const { marketId, refreshPulse } = useApp();
+  const { marketId, refreshPulse, dataSource, participant } = useApp();
   const [mode, setMode] = useState("text");
   const [text, setText] = useState("");
   const [imageB64, setImageB64] = useState(null);
@@ -29,41 +29,50 @@ export default function Vendor() {
   const [draft, setDraft] = useState(null);
   const [demand, setDemand] = useState(null);
   const [recent, setRecent] = useState([]);
-  const [listening, setListening] = useState(false);
-  const [speechSupported, setSpeechSupported] = useState(true);
-  const recRef = useRef(null);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [voiceOk, setVoiceOk] = useState(true);
+  const recorderRef = useRef(null);
+  const chunksRef = useRef([]);
   const fileRef = useRef(null);
 
   const loadSide = () => {
-    getVendorDemand(marketId).then(setDemand).catch(() => {});
+    getVendorDemand(marketId, dataSource).then(setDemand).catch(() => {});
     listSignals(marketId).then((s) => setRecent(s.filter((x) => x.source === "VENDOR").slice(0, 6))).catch(() => {});
   };
 
-  useEffect(() => { loadSide(); trackEvent("vendor_home_viewed"); /* eslint-disable-next-line */ }, [marketId]);
+  useEffect(() => { loadSide(); trackEvent("vendor_home_viewed"); /* eslint-disable-next-line */ }, [marketId, dataSource]);
 
-  useEffect(() => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    setSpeechSupported(!!SR);
-  }, []);
+  useEffect(() => { getVoiceStatus().then((s) => setVoiceOk(s.configured)).catch(() => setVoiceOk(false)); }, []);
 
-  const startVoice = () => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { setSpeechSupported(false); return; }
-    const rec = new SR();
-    rec.lang = "hi-IN";
-    rec.interimResults = true;
-    rec.continuous = false;
-    rec.onresult = (e) => {
-      const t = Array.from(e.results).map((r) => r[0].transcript).join(" ");
-      setText(t);
-    };
-    rec.onend = () => setListening(false);
-    rec.onerror = () => { setListening(false); setSpeechSupported(false); };
-    recRef.current = rec;
-    setListening(true);
-    rec.start();
+  const startRec = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) { setVoiceOk(false); toast.error("Microphone not available on this device."); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      chunksRef.current = [];
+      const rec = new MediaRecorder(stream);
+      rec.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data); };
+      rec.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        setTranscribing(true);
+        trackEvent("vendor_voice_recorded");
+        try {
+          const res = await transcribeAudio(blob, "voice.webm");
+          if (res.ok) { setText(res.transcript); toast.success("Transcribed — review below."); }
+          else toast.error(res.error || "Could not transcribe audio.");
+        } catch { toast.error("Could not transcribe audio."); }
+        finally { setTranscribing(false); }
+      };
+      recorderRef.current = rec;
+      rec.start();
+      setRecording(true);
+    } catch {
+      setVoiceOk(false);
+      toast.error("Microphone permission denied.");
+    }
   };
-  const stopVoice = () => { recRef.current?.stop(); setListening(false); };
+  const stopRec = () => { recorderRef.current?.stop(); setRecording(false); };
 
   const onFile = (e) => {
     const file = e.target.files?.[0];
@@ -106,7 +115,8 @@ export default function Vendor() {
         source: "VENDOR",
         confidence: draft.confidence || "MEDIUM",
         reasoning: draft.reasoning || "",
-        vendorName: "You (demo vendor)",
+        vendorName: participant?.name ? `${participant.name} (pilot vendor)` : "You (demo vendor)",
+        participantId: participant?.id,
       });
       trackEvent("vendor_signal_submitted");
       if (res.published) {
@@ -138,24 +148,28 @@ export default function Vendor() {
 
           {mode === "voice" && (
             <div className="mb-3 rounded-xl bg-[#F7F4EE] border border-[#E5DEC9] p-4 text-center">
-              {speechSupported ? (
+              {voiceOk ? (
                 <>
                   <button
-                    onClick={listening ? stopVoice : startVoice}
+                    onClick={recording ? stopRec : startRec}
+                    disabled={transcribing}
                     data-testid="vendor-mic-button"
-                    className={`relative mx-auto h-16 w-16 rounded-full flex items-center justify-center text-white ${listening ? "bg-[#C53030]" : "bg-[#1E5631]"}`}
+                    className={`relative mx-auto h-16 w-16 rounded-full flex items-center justify-center text-white disabled:opacity-60 ${recording ? "bg-[#C53030]" : "bg-[#1E5631]"}`}
                   >
-                    {listening && <span className="bm-pulse-ring text-[#C53030]" />}
+                    {recording && <span className="bm-pulse-ring text-[#C53030]" />}
                     <Mic className="h-6 w-6 relative" />
                   </button>
                   <div className="text-xs text-[#5C6360] mt-2">
-                    {listening ? "Listening… speak in Hindi / Hinglish / English" : "Tap to record. Uses your browser's speech recognition."}
+                    {transcribing ? "Transcribing with Whisper…"
+                      : recording ? "Recording… tap to stop. Speak in Hindi / Hinglish / English."
+                      : "Tap to record a voice note. Server speech-to-text (Whisper) — works on any phone."}
                   </div>
+                  <div className="text-[10px] text-[#8A8A82] mt-1">Your original transcript is preserved and shown below before anything is interpreted.</div>
                 </>
               ) : (
                 <div className="text-sm text-[#B4571E]">
-                  Live microphone transcription isn't available in this browser. Type your signal below instead —
-                  the architecture supports audio → speech-to-text → Gemini in production.
+                  Microphone/speech-to-text isn't available here. Type your signal below instead — the same
+                  audio → Whisper → Gemini pipeline runs server-side in production.
                 </div>
               )}
             </div>

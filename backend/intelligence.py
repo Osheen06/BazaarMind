@@ -158,10 +158,11 @@ def _overall_confidence(products: List[Dict[str, Any]]) -> str:
     return "Low"
 
 
-async def compute_market_pulse(db, market_id: str) -> Dict[str, Any]:
-    cursor = db.market_signals.find(
-        {"marketId": market_id, "status": "confirmed"}, {"_id": 0}
-    )
+async def compute_market_pulse(db, market_id: str, data_source: str = None) -> Dict[str, Any]:
+    query = {"marketId": market_id, "status": "confirmed"}
+    if data_source:
+        query["dataSource"] = data_source
+    cursor = db.market_signals.find(query, {"_id": 0})
     signals = await cursor.to_list(5000)
 
     by_product: Dict[str, List[Dict[str, Any]]] = {}
@@ -207,3 +208,57 @@ def build_pulse_context(pulse: Dict[str, Any], market_name: str) -> str:
             + f", updated {p['lastUpdated']}."
         )
     return "\n".join(lines)
+
+
+async def capture_snapshot(db, market_id: str, data_source: str = "DEMO") -> Dict[str, Any]:
+    """Persist a MarketSnapshot bundle computed from actual stored signals."""
+    pulse = await compute_market_pulse(db, market_id, data_source=data_source)
+    doc = {
+        "id": f"{market_id}-{data_source}-{int(_now().timestamp())}",
+        "marketId": market_id,
+        "dataSource": data_source,
+        "capturedAt": _now().isoformat(),
+        "overallConfidence": pulse["overallConfidence"],
+        "totalSignals": pulse["totalSignals"],
+        "products": [
+            {
+                "product": p["product"],
+                "availability": p["availability"],
+                "demand": p["demand"],
+                "reportedPriceSignal": p["reportedPriceSignal"],
+                "priceLow": p["priceLow"],
+                "priceHigh": p["priceHigh"],
+                "confidence": p["confidence"],
+                "signalCount": p["signalCount"],
+                "vendorObservations": p["vendorObservations"],
+                "shopperSignals": p["shopperSignals"],
+            }
+            for p in pulse["products"]
+        ],
+    }
+    await db.snapshot_history.insert_one({**doc})
+    return doc
+
+
+async def compare_snapshots(db, market_id: str, data_source: str = "DEMO") -> Dict[str, Any]:
+    """Compare the two most recent stored snapshots and surface product changes."""
+    cursor = db.snapshot_history.find(
+        {"marketId": market_id, "dataSource": data_source}, {"_id": 0}
+    ).sort("capturedAt", -1).limit(2)
+    snaps = await cursor.to_list(2)
+    if len(snaps) < 2:
+        return {"dataSource": data_source, "available": False, "captures": len(snaps), "changes": []}
+    latest, prev = snaps[0], snaps[1]
+    prev_map = {p["product"]: p for p in prev["products"]}
+    changes = []
+    for p in latest["products"]:
+        old = prev_map.get(p["product"])
+        if not old:
+            continue
+        for field, label in (("availability", "Availability"), ("demand", "Demand"), ("reportedPriceSignal", "Price")):
+            if p.get(field) and old.get(field) and p[field] != old[field]:
+                changes.append({"product": p["product"], "field": label, "from": old[field], "to": p[field]})
+    return {
+        "dataSource": data_source, "available": True,
+        "latestAt": latest["capturedAt"], "previousAt": prev["capturedAt"], "changes": changes,
+    }

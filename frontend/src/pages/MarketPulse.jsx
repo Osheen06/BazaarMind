@@ -8,19 +8,19 @@ import { CardSkeleton } from "../components/Loading";
 import { SectionLabel, ConfidenceBadge, DemoNote } from "../components/atoms";
 
 export default function MarketPulse() {
-  const { marketId, pulseVersion } = useApp();
+  const { marketId, pulseVersion, dataSource } = useApp();
   const [pulse, setPulse] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const load = () => {
     setLoading(true);
-    getMarketPulse(marketId)
+    getMarketPulse(marketId, dataSource)
       .then(setPulse)
       .catch(() => setPulse(null))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); trackEvent("market_pulse_viewed"); /* eslint-disable-next-line */ }, [marketId, pulseVersion]);
+  useEffect(() => { load(); trackEvent("market_pulse_viewed"); /* eslint-disable-next-line */ }, [marketId, pulseVersion, dataSource]);
 
   return (
     <div>
@@ -52,7 +52,9 @@ export default function MarketPulse() {
 
       <div className="mt-3 rounded-xl bg-[#D96B27]/8 border border-[#D96B27]/20 px-3.5 py-2.5">
         <DemoNote className="not-italic text-[#B4571E] font-medium">
-          Demo data — synthetic signals for product demonstration. Values are illustrative, not real-world measurements.
+          {pulse?.dataSource === "PILOT"
+            ? "Pilot data — real signals from onboarded pilot participants."
+            : "Demo data — synthetic signals for product demonstration. Values are illustrative, not real-world measurements."}
         </DemoNote>
       </div>
 

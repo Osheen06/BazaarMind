@@ -1,20 +1,32 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Users, Store, Sparkles, ArrowDown, ArrowUp, History } from "lucide-react";
-import { getMarketNetwork, getSnapshots, trackEvent } from "../lib/api";
+import { Users, Store, Sparkles, ArrowDown, ArrowUp, History, Camera } from "lucide-react";
+import { toast } from "sonner";
+import { getMarketNetwork, getSnapshots, getSnapshotHistory, captureSnapshot, trackEvent } from "../lib/api";
 import { useApp } from "../context/AppContext";
 import { SectionLabel, Chip, DemoNote } from "../components/atoms";
 
 export default function MarketNetwork() {
-  const { marketId } = useApp();
+  const { marketId, dataSource } = useApp();
   const [net, setNet] = useState(null);
   const [snaps, setSnaps] = useState([]);
+  const [history, setHistory] = useState(null);
+
+  const loadHistory = () => getSnapshotHistory(marketId, dataSource).then(setHistory).catch(() => {});
 
   useEffect(() => {
-    getMarketNetwork(marketId).then(setNet).catch(() => {});
+    getMarketNetwork(marketId, dataSource).then(setNet).catch(() => {});
     getSnapshots(marketId).then((r) => setSnaps(r.snapshots || [])).catch(() => {});
+    loadHistory();
     trackEvent("market_network_viewed");
-  }, [marketId]);
+    /* eslint-disable-next-line */
+  }, [marketId, dataSource]);
+
+  const capture = async () => {
+    await captureSnapshot(marketId, dataSource);
+    toast.success("Snapshot captured from current signals.");
+    loadHistory();
+  };
 
   return (
     <div>
@@ -63,15 +75,46 @@ export default function MarketNetwork() {
 
       {/* Snapshots */}
       <div className="mt-8">
-        <div className="flex items-center gap-2 text-sm font-semibold text-[#1E2022] mb-2">
-          <History className="h-4 w-4" /> Market snapshots
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-[#1E2022]">
+            <History className="h-4 w-4" /> Market snapshots
+          </div>
+          <button onClick={capture} data-testid="capture-snapshot-button"
+            className="inline-flex items-center gap-1.5 rounded-full bg-[#1E5631] text-[#FDFBF7] px-3 py-1.5 text-xs font-semibold hover:bg-[#194727]">
+            <Camera className="h-3.5 w-3.5" /> Capture snapshot now
+          </button>
         </div>
+
+        {/* Real captured history comparison */}
+        <div className="rounded-2xl bg-white border border-[#E5DEC9] p-4 mb-3" data-testid="snapshot-history">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold tracking-wide uppercase text-[#5C6360]">
+              Captured history ({history?.history?.length ?? 0}) · {dataSource}
+            </span>
+            <Chip tone={dataSource === "PILOT" ? "green" : "orange"}>{dataSource === "PILOT" ? "Pilot data" : "Demo data"}</Chip>
+          </div>
+          {history?.comparison?.available ? (
+            <div className="mt-3 flex flex-col gap-1.5">
+              {history.comparison.changes.length ? history.comparison.changes.map((c, i) => (
+                <div key={i} className="text-sm text-[#3A403D]">
+                  <span className="font-semibold">{c.product}</span> {c.field}: <span className="text-[#8A8A82]">{c.from}</span> → <span className="text-[#1E5631] font-semibold">{c.to}</span>
+                </div>
+              )) : <div className="text-sm text-[#5C6360]">No changes between the last two captures.</div>}
+            </div>
+          ) : (
+            <div className="mt-3 text-sm text-[#8A8A82]">
+              Capture at least two snapshots (or wait for the daily scheduled capture) to compare day-over-day. Real snapshots accumulate over the pilot.
+            </div>
+          )}
+        </div>
+
+        <div className="text-xs font-semibold tracking-wide uppercase text-[#5C6360] mb-2">Illustrative demo snapshots</div>
         <div className="grid sm:grid-cols-3 gap-3">
           {snaps.map((s) => (
             <div key={s.id} className="bg-white border border-[#E5DEC9] rounded-2xl p-4">
               <div className="flex items-center justify-between">
                 <span className="font-display font-bold text-[#1E2022]">{s.label}</span>
-                <Chip tone="neutral">synthetic</Chip>
+                <Chip tone="neutral">demo</Chip>
               </div>
               <div className="mt-3 flex flex-col gap-2">
                 {s.changes.map((c, i) => (
@@ -83,7 +126,7 @@ export default function MarketNetwork() {
             </div>
           ))}
         </div>
-        <DemoNote className="mt-3">Historical snapshots are synthetic demo data. Architecture supports real captured snapshots over time.</DemoNote>
+        <DemoNote className="mt-3">Demo historical data — synthetic. Real captured snapshots (above) accumulate over time via the daily scheduled capture.</DemoNote>
       </div>
     </div>
   );

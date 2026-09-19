@@ -26,14 +26,17 @@ const SIDEBAR_NAV = [
 ];
 
 function DemoModeBadge() {
-  const { demoMode } = useApp();
+  const { dataSource } = useApp();
+  const isPilot = dataSource === "PILOT";
   return (
     <div className="flex items-center gap-2" data-testid="demo-mode-indicator">
       <span className="inline-flex items-center gap-1.5 rounded-full bg-[#1E5631]/8 border border-[#1E5631]/20 px-2.5 py-1 text-[11px] font-semibold text-[#1E5631]">
         <Radio className="h-3 w-3" /> LIVE GEMINI
       </span>
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-[#D96B27]/10 border border-[#D96B27]/25 px-2.5 py-1 text-[11px] font-semibold text-[#B4571E]">
-        {demoMode ? "DEMO MODE · Synthetic signals" : "LIVE DATA"}
+      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold border ${
+        isPilot ? "bg-[#1E5631]/8 border-[#1E5631]/20 text-[#1E5631]" : "bg-[#D96B27]/10 border-[#D96B27]/25 text-[#B4571E]"
+      }`} data-testid="data-source-badge">
+        {isPilot ? "PILOT DATA" : "DEMO MODE · Synthetic signals"}
       </span>
     </div>
   );
