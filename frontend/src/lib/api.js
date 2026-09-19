@@ -34,8 +34,14 @@ export const getSnapshots = (marketId) =>
   client.get("/snapshots", { params: { marketId } }).then((r) => r.data);
 export const getSnapshotHistory = (marketId, dataSource = "DEMO") =>
   client.get("/snapshots/history", { params: { marketId, dataSource } }).then((r) => r.data);
+export const getSnapshotTrends = (marketId, dataSource = "DEMO", days = 7) =>
+  client.get("/snapshots/trends", { params: { marketId, dataSource, days } }).then((r) => r.data);
 export const captureSnapshot = (marketId, dataSource = "DEMO") =>
   client.post("/snapshots/capture", null, { params: { marketId, dataSource } }).then((r) => r.data);
+
+export const createInvite = (community, marketId) =>
+  client.post("/pilot/invite", { community, marketId }).then((r) => r.data);
+export const getInvite = (code) => client.get(`/pilot/invite/${code}`).then((r) => r.data);
 
 export const getPilotMetrics = () => client.get("/pilot/metrics").then((r) => r.data);
 export const getPilotStatus = (marketId) =>

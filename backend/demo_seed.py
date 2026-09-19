@@ -179,6 +179,45 @@ def _build_snapshots():
     ]
 
 
+_AVAIL_DISP = {"HIGH": "Good", "NORMAL": "Normal", "LOW": "Tight", "UNKNOWN": "Unknown"}
+_DEMAND_DISP = {"HIGH": "Elevated", "NORMAL": "Normal", "LOW": "Low", "UNKNOWN": "Unknown"}
+
+
+def _build_snapshot_history():
+    """7 days of DEMO snapshot bundles so week-long trends render (clearly synthetic)."""
+    now = datetime.now(timezone.utc)
+    docs = []
+    for d in range(6, -1, -1):
+        i = 6 - d  # 0 (7d ago) .. 6 (today)
+        captured = now - timedelta(days=d, hours=2)
+        products = []
+        for prod in DEMO_PRODUCTS:
+            name = prod["name"]
+            avail, demand, plo, phi, unit, vobs, sobs = _SPEC[name]
+            # gentle rising price trend across the week
+            factor = 0.9 + 0.03 * i
+            lo = round(plo * factor) if plo is not None else None
+            hi = round(phi * factor) if phi is not None else None
+            av = avail
+            if name == "Tomatoes":
+                av = "NORMAL" if i < 4 else "LOW"
+            elif name == "Coriander":
+                av = "NORMAL" if i < 5 else "LOW"
+            price_signal = (f"₹{lo}/{unit}" if lo == hi else f"₹{lo}–₹{hi}/{unit}") if lo is not None else None
+            products.append({
+                "product": name, "availability": _AVAIL_DISP.get(av, "Unknown"),
+                "demand": _DEMAND_DISP.get(demand, "Normal"), "reportedPriceSignal": price_signal,
+                "priceLow": lo, "priceHigh": hi, "confidence": "Medium",
+                "signalCount": vobs + sobs, "vendorObservations": vobs, "shopperSignals": sobs,
+            })
+        docs.append({
+            "id": f"{DEMO_MARKET['id']}-DEMO-hist-{i}", "marketId": DEMO_MARKET["id"],
+            "dataSource": "DEMO", "capturedAt": captured.isoformat(),
+            "overallConfidence": "Medium", "totalSignals": 133, "products": products,
+        })
+    return docs
+
+
 async def seed_if_empty(db):
     existing = await db.markets.count_documents({})
     if existing == 0:
@@ -194,3 +233,7 @@ async def seed_if_empty(db):
     snap_count = await db.market_snapshots.count_documents({})
     if snap_count == 0:
         await db.market_snapshots.insert_many(_build_snapshots())
+
+    hist_count = await db.snapshot_history.count_documents({"dataSource": "DEMO"})
+    if hist_count == 0:
+        await db.snapshot_history.insert_many(_build_snapshot_history())

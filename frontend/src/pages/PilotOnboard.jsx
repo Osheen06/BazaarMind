@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Users, Store, MapPin, Check, ArrowRight, ShieldCheck } from "lucide-react";
-import { onboardShopper, onboardVendor, getMarkets, getMarketsNearby, trackEvent } from "../lib/api";
+import { Users, Store, MapPin, Check, ArrowRight, ShieldCheck, Ticket } from "lucide-react";
+import { onboardShopper, onboardVendor, getMarkets, getMarketsNearby, getInvite, trackEvent } from "../lib/api";
 import { useApp } from "../context/AppContext";
 import { SectionLabel, Chip } from "../components/atoms";
 
@@ -20,8 +20,20 @@ export default function PilotOnboard() {
     stall: "", category: "", signalMethod: "text", consent: false,
   });
   const [saving, setSaving] = useState(false);
+  const [params] = useSearchParams();
+  const [invite, setInvite] = useState(null);
 
-  useEffect(() => { getMarkets().then(setMarkets).catch(() => {}); trackEvent("pilot_onboard_viewed"); }, []);
+  useEffect(() => {
+    getMarkets().then(setMarkets).catch(() => {});
+    trackEvent("pilot_onboard_viewed");
+    const code = params.get("invite");
+    if (code) {
+      getInvite(code)
+        .then((inv) => { setInvite(inv); setForm((f) => ({ ...f, community: inv.community, marketId: inv.marketId })); })
+        .catch(() => {});
+    }
+    /* eslint-disable-next-line */
+  }, []);
 
   const useLocation = () => {
     if (!navigator.geolocation) { toast.error("Location not available on this device."); return; }
@@ -67,6 +79,11 @@ export default function PilotOnboard() {
         <SectionLabel>Pilot onboarding</SectionLabel>
         <h1 className="font-display text-3xl font-extrabold text-[#1E2022] mt-1">Join the INA Market pilot</h1>
         <p className="text-sm text-[#5C6360] mt-1">One community · one market · 20–50 households · 10–15 vendors · 14 days. Takes under a minute.</p>
+        {invite && (
+          <div className="mt-4 rounded-xl bg-[#1E5631]/8 border border-[#1E5631]/20 px-4 py-3 flex items-center gap-2 text-sm text-[#1E5631] font-medium" data-testid="invite-banner">
+            <Ticket className="h-4 w-4" /> You're joining <b>{invite.community}</b> · {invite.market?.name}
+          </div>
+        )}
         <div className="grid sm:grid-cols-2 gap-3 mt-6">
           <RoleCard icon={Users} title="I'm a shopper" desc="Check the market before you go; your list becomes a demand signal." onClick={() => setRole("shopper")} testid="onboard-role-shopper" />
           <RoleCard icon={Store} title="I'm a vendor" desc="Share what you see; receive neighborhood demand intelligence." onClick={() => setRole("vendor")} testid="onboard-role-vendor" />

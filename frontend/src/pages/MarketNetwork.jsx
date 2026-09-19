@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Users, Store, Sparkles, ArrowDown, ArrowUp, History, Camera } from "lucide-react";
+import { Users, Store, Sparkles, ArrowDown, ArrowUp, History, Camera, LineChart as LineIcon } from "lucide-react";
 import { toast } from "sonner";
-import { getMarketNetwork, getSnapshots, getSnapshotHistory, captureSnapshot, trackEvent } from "../lib/api";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { getMarketNetwork, getSnapshots, getSnapshotHistory, getSnapshotTrends, captureSnapshot, trackEvent } from "../lib/api";
 import { useApp } from "../context/AppContext";
 import { SectionLabel, Chip, DemoNote } from "../components/atoms";
 
@@ -11,12 +12,14 @@ export default function MarketNetwork() {
   const [net, setNet] = useState(null);
   const [snaps, setSnaps] = useState([]);
   const [history, setHistory] = useState(null);
+  const [trends, setTrends] = useState(null);
 
   const loadHistory = () => getSnapshotHistory(marketId, dataSource).then(setHistory).catch(() => {});
 
   useEffect(() => {
     getMarketNetwork(marketId, dataSource).then(setNet).catch(() => {});
     getSnapshots(marketId).then((r) => setSnaps(r.snapshots || [])).catch(() => {});
+    getSnapshotTrends(marketId, dataSource, 7).then(setTrends).catch(() => {});
     loadHistory();
     trackEvent("market_network_viewed");
     /* eslint-disable-next-line */
@@ -72,6 +75,9 @@ export default function MarketNetwork() {
           ))}
         </div>
       </div>
+
+      {/* Trends */}
+      <TrendsCard trends={trends} dataSource={dataSource} />
 
       {/* Snapshots */}
       <div className="mt-8">
@@ -184,6 +190,64 @@ function NetworkGraph({ net }) {
         <span className="inline-flex items-center gap-1"><Sparkles className="h-3.5 w-3.5 text-[#1E5631]" /> Gemini</span>
         <span className="inline-flex items-center gap-1 text-[#B4571E]"><ArrowUp className="h-3.5 w-3.5" /> Supply · vendors</span>
       </div>
+    </div>
+  );
+}
+
+function TrendsCard({ trends, dataSource }) {
+  const products = trends?.products || [];
+  const [sel, setSel] = useState("Tomatoes");
+  useEffect(() => {
+    if (products.length && !products.find((p) => p.product === sel)) setSel(products[0].product);
+    /* eslint-disable-next-line */
+  }, [trends]);
+  if (!products.length) return null;
+  const cur = products.find((p) => p.product === sel) || products[0];
+  const data = (cur?.points || []).map((pt) => ({ ...pt, day: pt.date?.slice(5) }));
+  const availTone = { Good: "#1E5631", Normal: "#B45309", Tight: "#C53030", Limited: "#C53030", Unknown: "#8A8A82" };
+  return (
+    <div className="mt-8" data-testid="snapshot-trends">
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+        <div className="flex items-center gap-2 text-sm font-semibold text-[#1E2022]">
+          <LineIcon className="h-4 w-4 text-[#1E5631]" /> Week-long trends
+        </div>
+        <select value={sel} onChange={(e) => setSel(e.target.value)} data-testid="trend-product-select"
+          className="rounded-lg border border-[#E5DEC9] px-3 py-1.5 text-sm bg-white">
+          {products.map((p) => <option key={p.product} value={p.product}>{p.product}</option>)}
+        </select>
+      </div>
+      <div className="bg-white border border-[#E5DEC9] rounded-2xl p-4">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold tracking-wide uppercase text-[#5C6360]">Reported price signal (₹) · 7 days</span>
+          <Chip tone={dataSource === "PILOT" ? "green" : "orange"}>{dataSource === "PILOT" ? "Pilot data" : "Demo historical data"}</Chip>
+        </div>
+        <div className="mt-3" style={{ width: "100%", height: 200 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
+              <CartesianGrid stroke="#F0EBDE" vertical={false} />
+              <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#5C6360" }} axisLine={{ stroke: "#E5DEC9" }} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "#5C6360" }} axisLine={false} tickLine={false} width={40} />
+              <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #E5DEC9", fontSize: 12 }}
+                formatter={(v) => [`₹${v}`, "Reported price"]} />
+              <Line type="monotone" dataKey="priceMid" stroke="#1E5631" strokeWidth={2.5} dot={{ r: 3, fill: "#1E5631" }} activeDot={{ r: 5 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="mt-3">
+          <div className="text-xs font-semibold tracking-wide uppercase text-[#5C6360] mb-1.5">Availability over the week</div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {data.map((pt, i) => (
+              <div key={i} className="flex flex-col items-center gap-1">
+                <span className="h-3 w-3 rounded-full" style={{ background: availTone[pt.availability] || "#8A8A82" }} title={pt.availability} />
+                <span className="text-[9px] text-[#8A8A82]">{pt.day}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <DemoNote className="mt-2">
+        {dataSource === "PILOT" ? "Trend from real captured pilot snapshots." : "Demo historical data — synthetic. Real trends accumulate from daily captured snapshots."}
+      </DemoNote>
     </div>
   );
 }

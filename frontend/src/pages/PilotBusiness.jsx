@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { getPilotMetrics, getPilotStatus, trackEvent } from "../lib/api";
+import { getPilotMetrics, getPilotStatus, createInvite, trackEvent } from "../lib/api";
 import {
-  Target, Users, Store, Building2, TrendingUp, Layers, Map, ShoppingCart, Truck, Network, Quote, UserPlus, Activity,
+  Target, Users, Store, Building2, TrendingUp, Layers, Map, ShoppingCart, Truck, Network, Quote, UserPlus, Activity, Link2, Copy, Share2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { SectionLabel, Chip } from "../components/atoms";
 
 const TABS = [
@@ -83,19 +84,59 @@ function LiveStatus() {
 
 function Onboard() {
   const navigate = useNavigate();
+  const [community, setCommunity] = useState("");
+  const [invite, setInvite] = useState(null);
+  const link = invite ? `${window.location.origin}/join?invite=${invite.code}` : "";
+
+  const generate = async () => {
+    if (!community.trim()) { toast.error("Enter a community / RWA name first."); return; }
+    const res = await createInvite(community.trim(), "demo-ina");
+    setInvite(res);
+    trackEvent("pilot_invite_created");
+  };
+  const copy = () => { navigator.clipboard.writeText(link); toast.success("Invite link copied."); };
+  const share = () => window.open(`https://wa.me/?text=${encodeURIComponent(`Join our BazaarMind market pilot: ${link}`)}`, "_blank");
+
   return (
-    <div className="max-w-xl">
+    <div className="max-w-xl space-y-4">
       <div className="rounded-2xl bg-white border border-[#E5DEC9] p-6">
         <div className="h-11 w-11 rounded-xl bg-[#1E5631]/8 flex items-center justify-center text-[#1E5631]"><UserPlus className="h-5 w-5" /></div>
         <h2 className="font-display text-xl font-bold text-[#1E2022] mt-3">Run the 14-day INA Market pilot</h2>
         <p className="text-sm text-[#5C6360] mt-1">
-          Onboard 20–50 households and 10–15 vendors from one community. Onboarding is under a minute and drops the participant
+          Onboard 20–50 households and 10–15 vendors from one community. Onboarding takes under a minute and drops the participant
           straight into the real experience. Their contributions are labelled PILOT (kept separate from demo signals).
         </p>
         <button onClick={() => navigate("/join")} data-testid="onboard-cta"
           className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#1E5631] text-[#FDFBF7] px-5 py-2.5 text-sm font-semibold hover:bg-[#194727]">
           <UserPlus className="h-4 w-4" /> Open onboarding
         </button>
+      </div>
+
+      <div className="rounded-2xl bg-white border border-[#E5DEC9] p-6">
+        <div className="h-11 w-11 rounded-xl bg-[#D96B27]/10 flex items-center justify-center text-[#B4571E]"><Link2 className="h-5 w-5" /></div>
+        <h2 className="font-display text-xl font-bold text-[#1E2022] mt-3">Shareable RWA invite link</h2>
+        <p className="text-sm text-[#5C6360] mt-1">Generate one link for a whole community. Everyone who taps it joins the pilot in one tap, pre-filled with the community and market.</p>
+        <div className="mt-3 flex gap-2">
+          <input value={community} onChange={(e) => setCommunity(e.target.value)} placeholder="Green Meadows RWA"
+            data-testid="invite-community-input" className="flex-1 rounded-lg border border-[#E5DEC9] px-3 py-2 text-sm bg-white" />
+          <button onClick={generate} data-testid="invite-generate-button"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#1E5631] text-[#FDFBF7] px-4 py-2 text-sm font-semibold hover:bg-[#194727]">
+            <Link2 className="h-4 w-4" /> Generate
+          </button>
+        </div>
+        {invite && (
+          <div className="mt-3 rounded-xl bg-[#F7F4EE] border border-[#E5DEC9] p-3" data-testid="invite-link-box">
+            <div className="font-mono text-xs text-[#1E2022] break-all">{link}</div>
+            <div className="mt-2 flex gap-2">
+              <button onClick={copy} data-testid="invite-copy-button" className="inline-flex items-center gap-1.5 rounded-full border border-[#E5DEC9] bg-white px-3 py-1.5 text-xs font-semibold text-[#1E2022] hover:bg-white">
+                <Copy className="h-3.5 w-3.5" /> Copy
+              </button>
+              <button onClick={share} className="inline-flex items-center gap-1.5 rounded-full bg-[#1E5631] text-[#FDFBF7] px-3 py-1.5 text-xs font-semibold hover:bg-[#194727]">
+                <Share2 className="h-3.5 w-3.5" /> Share on WhatsApp
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

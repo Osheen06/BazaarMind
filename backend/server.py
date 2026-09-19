@@ -375,6 +375,29 @@ async def snapshots_history(marketId: str = DEFAULT_MARKET, dataSource: str = "D
     return {"history": history, "comparison": comparison, "dataSource": dataSource}
 
 
+AVAIL_SCORE = {"Good": 3, "Normal": 2, "Tight": 1, "Limited": 1, "Unknown": 0}
+
+
+@api.get("/snapshots/trends")
+async def snapshots_trends(marketId: str = DEFAULT_MARKET, dataSource: str = "DEMO", days: int = 7):
+    cursor = db.snapshot_history.find({"marketId": marketId, "dataSource": dataSource}, {"_id": 0}).sort("capturedAt", 1).limit(200)
+    snaps = await cursor.to_list(200)
+    snaps = snaps[-days:] if len(snaps) > days else snaps
+    series: Dict[str, list] = {}
+    for s in snaps:
+        date = s["capturedAt"][:10]
+        for p in s.get("products", []):
+            lo, hi = p.get("priceLow"), p.get("priceHigh")
+            price_mid = round((lo + hi) / 2) if (lo is not None and hi is not None) else (lo if lo is not None else None)
+            series.setdefault(p["product"], []).append({
+                "date": date, "priceMid": price_mid, "availability": p.get("availability"),
+                "availabilityScore": AVAIL_SCORE.get(p.get("availability"), 0),
+                "reportedPriceSignal": p.get("reportedPriceSignal"),
+            })
+    return {"dataSource": dataSource, "synthetic": dataSource == "DEMO",
+            "products": [{"product": k, "points": v} for k, v in series.items()]}
+
+
 # ----------------------------- Pilot -----------------------------
 @api.get("/pilot/metrics")
 async def pilot_metrics():
@@ -438,6 +461,29 @@ async def pilot_status(marketId: str = DEFAULT_MARKET):
             {"name": "Signal corroboration", "value": pilot_signals, "display": f"{pilot_signals} signals" if has_pilot else AWAIT},
         ],
     }
+
+
+class InviteCreate(BaseModel):
+    community: str
+    marketId: str = DEFAULT_MARKET
+
+
+@api.post("/pilot/invite")
+async def create_invite(req: InviteCreate):
+    code = uuid.uuid4().hex[:8]
+    doc = {"code": code, "community": req.community, "marketId": req.marketId, "createdAt": now_iso()}
+    await db.pilot_invites.insert_one({**doc})
+    return {"ok": True, **doc}
+
+
+@api.get("/pilot/invite/{code}")
+async def get_invite(code: str):
+    inv = await db.pilot_invites.find_one({"code": code}, {"_id": 0})
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invite not found")
+    market = await db.markets.find_one({"id": inv["marketId"]}, {"_id": 0})
+    inv["market"] = market or {"id": inv["marketId"], "name": "Demo Market"}
+    return inv
 
 
 # ----------------------------- WhatsApp (integration-ready) -----------------------------

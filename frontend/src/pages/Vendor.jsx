@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
-  Mic, Camera, Type, Send, Store, Users, CheckCircle2, Pencil, X, Sparkles, TrendingUp,
+  Mic, Camera, Type, Send, Store, Users, CheckCircle2, Pencil, X, Sparkles, TrendingUp, Zap,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -59,7 +59,7 @@ export default function Vendor() {
         trackEvent("vendor_voice_recorded");
         try {
           const res = await transcribeAudio(blob, "voice.webm");
-          if (res.ok) { setText(res.transcript); toast.success("Transcribed — review below."); }
+          if (res.ok) { setText(res.transcript); toast.success("Transcribed — interpreting…"); doInterpret(res.transcript, null); }
           else toast.error(res.error || "Could not transcribe audio.");
         } catch { toast.error("Could not transcribe audio."); }
         finally { setTranscribing(false); }
@@ -82,14 +82,16 @@ export default function Vendor() {
     reader.readAsDataURL(file);
   };
 
-  const submit = async () => {
-    if ((!text.trim() && !imageB64) || busy) return;
+  const submit = () => doInterpret(text, imageB64);
+
+  const doInterpret = async (rawText, image) => {
+    if ((!rawText.trim() && !image) || busy) return;
     setBusy(true);
-    trackEvent(imageB64 ? "image_signal_submitted" : "vendor_signal_started");
+    trackEvent(image ? "image_signal_submitted" : "vendor_signal_started");
     try {
-      const res = await interpretSignal(text.trim(), imageB64);
+      const res = await interpretSignal(rawText.trim(), image);
       if (!res.ok) { toast.error(res.error); return; }
-      setDraft({ ...res.signal, rawText: text.trim() });
+      setDraft({ ...res.signal, rawText: rawText.trim() });
     } catch {
       toast.error("BazaarMind couldn't interpret that right now. Please try again.");
     } finally {
@@ -164,7 +166,7 @@ export default function Vendor() {
                       : recording ? "Recording… tap to stop. Speak in Hindi / Hinglish / English."
                       : "Tap to record a voice note. Server speech-to-text (Whisper) — works on any phone."}
                   </div>
-                  <div className="text-[10px] text-[#8A8A82] mt-1">Your original transcript is preserved and shown below before anything is interpreted.</div>
+                  <div className="text-[10px] text-[#8A8A82] mt-1 flex items-center justify-center gap-1"><Zap className="h-3 w-3 text-[#1E5631]" />Your transcript is preserved and shown below, then BazaarMind interprets it automatically for your review.</div>
                 </>
               ) : (
                 <div className="text-sm text-[#B4571E]">
