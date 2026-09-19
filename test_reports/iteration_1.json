@@ -1,0 +1,39 @@
+{
+  "summary": "First-run full-stack testing of BazaarMind. Backend: 15/15 pytest passed against all P0 endpoints including LIVE Gemini (interpret, shopping-list parse, ask, image interpret). Frontend: Landing, Pulse, Shop, Vendor (with confirm dialog & publish), Ask (live Gemini), and all navigation routes (/network, /business, /more) load and integrate correctly. No critical bugs found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/signals/interpret", "issue": "On Gemini failure the API returns HTTP 200 with ok=false instead of a 5xx. Intentional UX choice but inconsistent with REST — clients cannot distinguish transport vs semantic failure via status code. Same for /api/ask-bazaar and /api/shopping-list/parse."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "More.jsx market selector (line 111)", "issue": "React hydration warning: <span> cannot be a child of <option>. The dynamic wrapper span is being injected inside a <select><option>. Causes console error on /more.", "selector": "[data-testid='market-selector'] option", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Shopper (/shop) list-comparison result card", "issues": ["After the AI comparison list renders, product rows appear low-contrast/greyed out (see screenshot) even for items with status tight — the 'tight' pill blends with muted text. Verify intended emphasis for tight vs ok rows."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Fix More.jsx market selector: remove the dynamic wrapper <span> inside <option>. Render {m.name} directly, or use a non-native Select (shadcn) so the DOM stays valid.",
+    "Consider returning proper 5xx status when Gemini interpret/ask/parse throw so frontend can differentiate — currently frontend must key off ok flag only.",
+    "(Optional) Review contrast/emphasis on shopper list comparison rows so tight items visually stand out."
+  ],
+  "critical_code_review_comments": [
+    "server.py catches exceptions on interpret/ask/parse and returns 200 with ok=false. This masks real failures in monitoring. Suggest returning 502/503 while keeping ok=false payload.",
+    "demo_seed.seed_if_empty only seeds when collections empty — good for idempotency, but there is no way to reset synthetic data without dropping DB (fine for demo).",
+    "gemini_service._extract_json uses greedy regex to find first JSON object. Safe today but could break if Gemini returns multiple code blocks; consider using json.JSONDecoder.raw_decode with fallback.",
+    "intelligence.compute_market_pulse loads all confirmed signals per request (to_list 5000). At real pilot scale, add Mongo aggregation pipeline / product index.",
+    "Prices are cast via int() in reportedPriceSignal string, which will truncate 55.5 -> 55. Round would be more honest.",
+    "CORS allow_origins='*' with allow_credentials=True is technically invalid per spec; browsers ignore credentials. Since no auth, harmless."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (15/15)", "frontend": "100% core flows"},
+  "test_credentials": "N/A - no auth (demo mode)",
+  "seed_data_creation": "Backend auto-seeds synthetic demo-ina market on startup. Tests created a few TEST_ prefixed vendor signals against Tomatoes (confirmed) and 2 moderation-pending signals. Slight inflation of vendorObservations for Tomatoes; safe to ignore or reseed by dropping db.market_signals.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All 15 backend pytest tests in /app/backend/tests/backend_test.py pass. Live Gemini calls take ~4-8s each; total suite runs in ~45s. Frontend testids of note: shopper-chat-input, shopper-send-button, vendor-text-input (NOT vendor-signal-input), vendor-send-signal-button, vendor-confirm-publish-button, ask-gemini-input, ask-send-button. Default market id 'demo-ina'. Skip re-testing unless main agent changes backend intelligence or Gemini schemas."
+}

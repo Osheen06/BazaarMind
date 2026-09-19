@@ -108,7 +108,7 @@ export default function More() {
             <div className="font-semibold text-[#1E2022] text-sm mb-1">Market</div>
             <select value={marketId} onChange={(e) => setMarketId(e.target.value)} data-testid="market-selector"
               className="w-full rounded-lg border border-[#E5DEC9] px-3 py-2 text-sm bg-white">
-              {(markets.length ? markets : [currentMarket]).map((m) => <option key={m.id} value={m.id}>{m.name} — {m.area}</option>)}
+              {(markets.length ? markets : [currentMarket]).map((m) => <option key={m.id} value={m.id}>{`${m.name} — ${m.area}`}</option>)}
             </select>
           </div>
         </div>

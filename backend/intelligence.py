@@ -109,9 +109,9 @@ def build_product_pulse(product: str, signals: List[Dict[str, Any]]) -> Optional
         price_unit = next((u for _, u in prices if u), "kg")
         price_low, price_high = vals[0], vals[-1]
         if price_low == price_high:
-            price_signal = f"₹{int(price_low)}/{price_unit}"
+            price_signal = f"₹{round(price_low)}/{price_unit}"
         else:
-            price_signal = f"₹{int(price_low)}–₹{int(price_high)}/{price_unit}"
+            price_signal = f"₹{round(price_low)}–₹{round(price_high)}/{price_unit}"
 
     # agreement = share of the dominant availability vote
     agreement = 1.0
