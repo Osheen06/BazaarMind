@@ -1,0 +1,44 @@
+{
+  "summary": "Iteration 3 fully verified. Backend: 11/11 new pytest cases pass in /app/backend/tests/test_iteration3.py covering (A) snapshot trends: /api/snapshots/trends?dataSource=DEMO&days=7 returns 8 products with exactly 7 points each; Tomatoes priceMid rises (~52->62) and availability transitions from Normal to Tight; PILOT returns products=[]. (B) Pilot invites: POST /api/pilot/invite returns ok=true+8-hex code; GET /api/pilot/invite/{code} returns community + market.name; GET on BADCODE returns 404. (C) Voice: /api/voice/status configured=true; and a REAL TTS -> Whisper round-trip using OpenAITextToSpeech from emergentintegrations (tts-1, alloy, mp3) fed back into POST /api/voice/transcribe succeeded — transcript contained expected words. Regression: DEMO pulse still returns 8 products, /api/signals/interpret still returns a live structured signal, shopper onboard still flips environment to PILOT. Frontend (Playwright on public URL): /network shows the Week-long trends section (data-testid=snapshot-trends) with a recharts price line + availability dot strip + 'Demo historical data' Chip; trend-product-select lists all 8 products and switching updates the chart. /business Onboard tab (biz-tab-onboard) generates a working invite (invite-community-input + invite-generate-button -> invite-link-box containing /join?invite=CODE with Copy + WhatsApp share). Visiting /join?invite=CODE renders invite-banner naming the community + INA Market, and after clicking onboard-role-shopper the community input is pre-filled. Vendor voice tab exposes vendor-mic-button; text flow still opens the interpret dialog and publishes via vendor-confirm-publish-button (saw 'Signal added to your market's pulse' toast).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "MarketNetwork > Week-long trends", "issues": ["First render logs a recharts width(-1)/height(-1) warning — cosmetic, chart renders correctly after ResponsiveContainer measures. Consider giving the wrapper an explicit minWidth to suppress the warning."]},
+      {"screen": "Vendor confirm dialog", "issues": ["A11y: DialogContent is missing aria-describedby / Description (Radix warning in console). Not blocking, but easy fix by adding a DialogDescription."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration3.py",
+    "/app/backend/tests/test_iteration2.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/iteration3_results.xml"
+  ],
+  "action_items": [
+    "(Optional a11y) Add a <DialogDescription> to the Vendor confirm-and-publish dialog to remove the Radix aria-describedby warning.",
+    "(Optional cosmetic) Fix recharts ResponsiveContainer initial width(-1) warning in TrendsCard.",
+    "(Carry-over from iter-1, still open) More.jsx hydration warning: <span> inside <option>."
+  ],
+  "critical_code_review_comments": [
+    "server.py /api/pilot/invite: invite codes are only 8 hex chars (uuid4().hex[:8] = 32 bits). Collision risk is small but non-zero; there is no unique index on pilot_invites.code and no retry-on-collision. Recommend adding a unique index and either enlarging to 12 hex chars or retrying on DuplicateKeyError.",
+    "server.py /api/pilot/invite has no rate limiting or auth — anyone can spam-create invites and inflate pilot_invites unbounded. Consider a simple per-IP rate limit or a soft cap.",
+    "server.py /api/snapshots/trends silently truncates to the last `days` snapshots regardless of actual date gaps (snaps[-days:]). If the daily cron ever misses days, points will still count as N consecutive but with non-contiguous dates. Consider bucketing by date or forward-filling missing days for honest week-long visualisation.",
+    "MarketNetwork.jsx TrendsCard initial useState('Tomatoes') is a magic default that only works because DEMO seed always includes Tomatoes. For PILOT/other markets where Tomatoes may be missing, the useEffect corrects it — but there is a brief render where the chart is empty. Consider deriving initial sel from products[0]?.product.",
+    "PilotBusiness.jsx Onboard(): navigator.clipboard.writeText is called without a fallback / try-catch. On some in-app browsers (older WhatsApp / iOS) this throws and no error toast fires. Wrap in try/catch and offer a manual-copy fallback.",
+    "server.py 289–306: voice_service.transcribe_audio now correctly uses delete=False + finally unlink (previous iteration's concern addressed). Good.",
+    "Vendor.jsx: startRec's rec.onstop calls doInterpret(res.transcript, null) with the transcribed text — good. However, if Whisper returns empty string (silent audio), doInterpret still runs; guarded by `if ((!rawText.trim() && !image) || busy) return;` so it's safe. Consider surfacing a friendly 'No speech detected' toast for empty transcripts."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration3.py"
+  ],
+  "success_rate": {"backend": "100% (11/11 iter-3 + 20/20 iter-2 + 15/15 iter-1)", "frontend": "100% for all iter-3 flows"},
+  "test_credentials": "N/A (no auth). WEBHOOK_CRON_SECRET in backend/.env; EMERGENT_LLM_KEY drives Gemini + Whisper + TTS.",
+  "seed_data_creation": "Tests created TEST_-prefixed pilot_invites, one TEST_ shopper participant and PILOT signals. All cleaned up via module fixture + a final pymongo cleanup script — pilot_participants back to 0, PILOT signals back to 0, only the DEMO-seeded snapshot_history remains. Environment reverts to DEMO for the next agent. One TEST invite doc remained after cleanup regex-cleanup but has no user-visible impact.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration-3 backend suite: /app/backend/tests/test_iteration3.py (11 tests, all pass, includes a live OpenAI TTS -> Whisper transcription round-trip via emergentintegrations.llm.openai.OpenAITextToSpeech.generate_speech + POST /api/voice/transcribe). Iteration 1 (15) + iteration 2 (20) suites still valid. Backend URL comes from frontend/.env REACT_APP_BACKEND_URL. Snapshot_history is seeded on startup with 7 DEMO days — if you wipe db.snapshot_history you must restart backend to re-seed or Trends UI will disappear. WhatsApp is intentionally unconfigured (503 on both webhook routes = expected)."
+}

@@ -494,8 +494,8 @@ async def whatsapp_status():
 
 @api.get("/whatsapp/webhook")
 async def whatsapp_verify(request: Request):
-    if not whatsapp_service.is_configured():
-        raise HTTPException(status_code=503, detail="integration ready — production credentials required")
+    if not whatsapp_service.verify_ready():
+        raise HTTPException(status_code=503, detail="verify token not configured")
     params = request.query_params
     challenge = whatsapp_service.verify_challenge(
         params.get("hub.mode", ""), params.get("hub.verify_token", ""), params.get("hub.challenge", ""))

@@ -30,17 +30,28 @@ def is_configured() -> bool:
     return all((VERIFY_TOKEN, ACCESS_TOKEN, PHONE_NUMBER_ID, APP_SECRET))
 
 
+def verify_ready() -> bool:
+    """Webhook GET verification only needs the verify token (set in preview)."""
+    return bool(VERIFY_TOKEN)
+
+
 def status() -> dict:
+    if is_configured():
+        label = "WhatsApp integration live"
+    elif verify_ready():
+        label = "Webhook verification ready — add Meta messaging credentials to go live"
+    else:
+        label = "WhatsApp integration ready — production credentials required"
     return {
         "configured": is_configured(),
+        "verifyReady": verify_ready(),
         "verifyToken": bool(VERIFY_TOKEN),
         "accessToken": bool(ACCESS_TOKEN),
         "phoneNumberId": bool(PHONE_NUMBER_ID),
         "appSecret": bool(APP_SECRET),
         "graphVersion": GRAPH_VERSION,
         "webhookPath": "/api/whatsapp/webhook",
-        "label": "WhatsApp integration ready — production credentials required"
-        if not is_configured() else "WhatsApp integration live",
+        "label": label,
     }
 
 
