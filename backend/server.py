@@ -109,6 +109,15 @@ def _resolve_source(participant_id: Optional[str], explicit: Optional[str]) -> s
     return "PILOT" if participant_id else "DEMO"
 
 
+async def _resolve_source_async(participant_id: Optional[str], explicit: Optional[str]) -> str:
+    if explicit in ("DEMO", "PILOT", "REAL"):
+        return explicit
+    if participant_id:
+        exists = await db.pilot_participants.find_one({"id": participant_id}, {"_id": 1})
+        return "PILOT" if exists else "DEMO"
+    return "DEMO"
+
+
 # ----------------------------- Basic -----------------------------
 @api.get("/")
 async def root():
@@ -185,7 +194,8 @@ def _moderate(signal: Dict[str, Any]) -> str:
 async def create_signal(req: SignalCreate):
     doc = req.model_dump()
     participant_id = doc.pop("participantId", None)
-    doc["dataSource"] = _resolve_source(participant_id, doc.pop("dataSource", None))
+    explicit = doc.pop("dataSource", None)
+    doc["dataSource"] = await _resolve_source_async(participant_id, explicit)
     doc["participantId"] = participant_id
     doc["id"] = str(uuid.uuid4())
     created = datetime.now(timezone.utc)
@@ -214,7 +224,7 @@ async def shopping_list_parse(req: ShoppingListRequest):
         logger.exception("list parse failed")
         return JSONResponse(status_code=200, content={"ok": False, "error": "BazaarMind couldn't read that list right now. Please try again."})
 
-    data_source = _resolve_source(req.participantId, None)
+    data_source = await _resolve_source_async(req.participantId, None)
     pulse = await intelligence.compute_market_pulse(db, req.marketId, data_source=data_source)
     pulse_map = {p["product"]: p for p in pulse["products"]}
 
@@ -350,6 +360,9 @@ async def snapshots(marketId: str = DEFAULT_MARKET):
 
 @api.post("/snapshots/capture")
 async def snapshots_capture(marketId: str = DEFAULT_MARKET, dataSource: str = "DEMO"):
+    pulse = await intelligence.compute_market_pulse(db, marketId, data_source=dataSource)
+    if not pulse["products"]:
+        return {"ok": False, "reason": "No signals to snapshot for this market/data source yet."}
     doc = await intelligence.capture_snapshot(db, marketId, dataSource)
     return {"ok": True, "snapshot": doc}
 
@@ -422,7 +435,7 @@ async def pilot_status(marketId: str = DEFAULT_MARKET):
             {"name": "Shopping lists created", "value": pilot_lists, "display": pilot_lists if has_pilot else AWAIT},
             {"name": "Market Pulse views", "value": pulse_views, "display": pulse_views if has_pilot else AWAIT},
             {"name": "Vendor participation", "value": vendors, "display": f"{vendors} vendors" if has_pilot else AWAIT},
-            {"name": "Signal corroboration", "value": pilot_signals, "display": "Live" if has_pilot else AWAIT},
+            {"name": "Signal corroboration", "value": pilot_signals, "display": f"{pilot_signals} signals" if has_pilot else AWAIT},
         ],
     }
 
@@ -435,6 +448,8 @@ async def whatsapp_status():
 
 @api.get("/whatsapp/webhook")
 async def whatsapp_verify(request: Request):
+    if not whatsapp_service.is_configured():
+        raise HTTPException(status_code=503, detail="integration ready — production credentials required")
     params = request.query_params
     challenge = whatsapp_service.verify_challenge(
         params.get("hub.mode", ""), params.get("hub.verify_token", ""), params.get("hub.challenge", ""))

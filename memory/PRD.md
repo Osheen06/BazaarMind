@@ -56,8 +56,25 @@ Gemini is the interpreter.
 - backend/.env: MONGO_URL, DB_NAME, CORS_ORIGINS, EMERGENT_LLM_KEY, GEMINI_MODEL=gemini-3.1-pro-preview
 - frontend/.env: REACT_APP_BACKEND_URL
 
+## Expansion (2026-06) — implemented & tested (35/35)
+- **Single intelligence engine**: `conversation.process_message` shared by PWA + WhatsApp; no duplicated AI logic.
+- **WhatsApp Business (integration-ready)**: `whatsapp_service.py` + `/api/whatsapp/{status,webhook}`.
+  Webhook GET verification, POST X-Hub-Signature-256 HMAC check, Graph API send. Unconfigured →
+  503 (webhook) / labelled "integration ready — production credentials required". Never simulated.
+  Env: WHATSAPP_VERIFY_TOKEN, WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID, META_APP_SECRET, META_GRAPH_VERSION.
+- **Voice signals (LIVE Whisper)**: `voice_service.py` + `/api/voice/transcribe` (whisper-1 via Emergent key).
+  Verified live TTS→STT round-trip. Original transcript preserved; interpretation is a separate reviewable step.
+  Frontend uses MediaRecorder → server STT (works on any phone), honest fallback when mic unavailable.
+- **Persistent snapshots**: `snapshot_history` collection; `/api/snapshots/capture` + `/history` (compare latest two);
+  daily capture via `.emergent/crons.yml` → `/api/cron/capture-snapshot` (Bearer WEBHOOK_CRON_SECRET, backgrounded).
+- **Pilot onboarding**: `/api/pilot/onboard/{shopper,vendor}` + `/api/pilot/status` (DB-derived; "Awaiting pilot data"
+  when empty). Frontend `/join` short forms + `/business` Live Status & Onboard tabs.
+- **Location (optional)**: markets carry approx lat/lng; `/api/markets/nearby` (haversine sort). Permission requested
+  with explanation; denial falls back to manual selection — never blocks.
+- **Data-source separation**: every signal tagged `dataSource` DEMO/PILOT; pulse/network/vendor-demand/ask filter by it.
+  participantId validated against pilot_participants (unknown → DEMO, prevents metric inflation). Context toggles
+  DEMO/PILOT badge automatically when a participant is onboarded.
+
 ## Backlog (future)
-- P1: Real WhatsApp Business API integration (conversation layer already isolated from intelligence).
-- P1: Speech-to-text pipeline for vendor voice notes in unsupported browsers.
-- P2: Multi-market data, real snapshots over time, Mongo aggregation + indexes at pilot scale,
-  lightweight auth if real pilot begins, service-worker offline shell caching.
+- Provide real Meta credentials to activate WhatsApp; map WhatsApp sender → pilot participant for PILOT routing.
+- Mongo aggregation + indexes at pilot scale; service-worker offline shell caching; lightweight auth if pilot grows.

@@ -29,13 +29,20 @@ async def transcribe_audio(content: bytes, filename: str = "audio.webm") -> str:
     if ext not in ALLOWED_EXT:
         ext = "webm"
     stt = OpenAISpeechToText(api_key=EMERGENT_LLM_KEY)
-    with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=True) as tmp:
+    tmp = tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False)
+    try:
         tmp.write(content)
         tmp.flush()
+        tmp.close()
         with open(tmp.name, "rb") as audio_file:
             response = await stt.transcribe(
                 file=audio_file,
                 model=WHISPER_MODEL,
                 response_format="json",
             )
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
     return getattr(response, "text", str(response)).strip()
