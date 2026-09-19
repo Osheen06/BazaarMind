@@ -1,0 +1,112 @@
+{
+  "project_name": "BAZAARMIND",
+  "tagline": "The Market That Thinks as One",
+  "archetype": "ORGANIC & EARTHY + INTELLIGENT INFRASTRUCTURE (Indian Urban Commerce)",
+  "design_philosophy": "Grounded, warm, physical market authenticity paired with precise real-time graph intelligence. Avoids generic SaaS aesthetics, neon cyberpunk gradients, and fake AI sparkles. Feels like a serious early-stage Delhi NCR consumer & vendor intelligence network.",
+  "theme": {
+    "default_mode": "light",
+    "background_base": "#FDFBF7",
+    "background_secondary": "#F7F4EE",
+    "card_bg": "#FFFFFF",
+    "border_color": "#E5DEC9",
+    "text_primary": "#1E2022",
+    "text_muted": "#5C6360",
+    "accent_primary": "#1E5631",
+    "accent_secondary": "#D96B27",
+    "accent_terracotta": "#E07A5F",
+    "status_positive": "#2D6A4F",
+    "status_warning": "#D97706",
+    "status_negative": "#C53030",
+    "confidence_high": "#1E5631",
+    "confidence_med": "#B45309",
+    "confidence_low": "#9B2C2C"
+  },
+  "typography": {
+    "font_family_heading": "Cabinet Grotesk, Outfit, sans-serif",
+    "font_family_body": "Plus Jakarta Sans, Inter, sans-serif",
+    "font_family_mono": "JetBrains Mono, monospace",
+    "scale": {
+      "h1_hero": "text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-[#1E2022]",
+      "h2_section": "text-2xl sm:text-3xl font-semibold tracking-tight text-[#1E2022]",
+      "h3_card": "text-lg sm:text-xl font-medium text-[#1E2022]",
+      "body": "text-base text-[#1E2022] leading-relaxed",
+      "small_label": "text-xs font-semibold tracking-wider uppercase text-[#5C6360]"
+    }
+  },
+  "layout_and_navigation": {
+    "pwa_mobile_bottom_nav": {
+      "items": [
+        {"id": "pulse", "label": "Pulse", "icon": "Activity", "testid": "nav-item-pulse"},
+        {"id": "shop", "label": "Shop", "icon": "MessageSquare", "testid": "nav-item-shop"},
+        {"id": "vendor", "label": "Vendor", "icon": "Store", "testid": "nav-item-vendor"},
+        {"id": "ask", "label": "Ask", "icon": "Sparkles", "testid": "nav-item-ask"},
+        {"id": "more", "label": "More", "icon": "Grid", "testid": "nav-item-more"}
+      ],
+      "style": "fixed bottom-0 inset-x-0 bg-[#FDFBF7]/95 backdrop-blur-md border-t border-[#E5DEC9] z-50 px-4 py-2 md:hidden flex justify-around items-center"
+    },
+    "desktop_sidebar_command_center": {
+      "style": "hidden md:flex flex-col w-64 bg-[#F7F4EE] border-r border-[#E5DEC9] min-h-screen p-4 sticky top-0 z-40",
+      "header": "BAZAARMIND / Delhi NCR Intelligence Layer",
+      "demo_mode_switch": "Prominent header toggle: LIVE GEMINI vs DEMO MODE (Synthetic Signals)"
+    }
+  },
+  "components_and_sections": {
+    "hero_landing": {
+      "headline": "BAZAARMIND / The Market That Thinks as One",
+      "subheadline": "Real-time, multilingual market intelligence layer for Delhi NCR neighborhood mandis.",
+      "live_demo_badge": "Interactive Mode: Live Gemini AI + Synthetic Ground Truth Signals"
+    },
+    "market_pulse": {
+      "card_style": "bg-white border border-[#E5DEC9] rounded-xl p-5 shadow-sm hover:shadow-md transition-all",
+      "signal_badges": {
+        "confidence": "Inline badge showing High (Green), Medium (Amber), or Low (Red)",
+        "evidence_count": "e.g., '14 corroborations • 3 markets'",
+        "disclaimer": "'Reported price signal' notice to indicate real crowd-sourced rate vs guaranteed fixed price"
+      }
+    },
+    "market_network": {
+      "visualization": "Graph node representation: Shoppers → Demand Nodes → Mandi Hub ← Supply Signals ← Vendors",
+      "interactive_filters": "Filter by Market (INA Market, Ghazipur Mandi, Okhla Mandi, Sadar Bazaar, Sarojini Nagar, Gurgaon Sector 14) or Commodity (Tomatoes, Cauliflower, Basmati, Spices)"
+    },
+    "shopper_whatsapp_style": {
+      "chat_bubble_user": "bg-[#2D6A4F] text-white rounded-2xl rounded-tr-none p-3.5 shadow-sm max-w-[85%] self-end",
+      "chat_bubble_assistant": "bg-[#F7F4EE] border border-[#E5DEC9] text-[#1E2022] rounded-2xl rounded-tl-none p-3.5 max-w-[85%] self-start",
+      "shopping_list_parser": "Instant extraction of items, quantities, and price signal comparison across nearby NCR markets"
+    },
+    "vendor_signal_submission": {
+      "input_methods": ["Text (Hindi/Hinglish/English)", "Voice Audio Input Simulator", "Photo Upload"],
+      "confirm_before_publish_modal": "Crucial Step: 'Here is what BazaarMind understood' parser table with item, signal type, price range, and confidence before publishing to Market Pulse"
+    },
+    "pilot_and_business": {
+      "pilot_metrics": "Target metrics cards: Mandi coverage (12), Daily Active Signals (1,200+), Parsing Accuracy (94.2%), Corroboration Rate (88%)",
+      "business_moat": "Data network effects, localized multilingual prompt architecture, hyper-local trade flow graph"
+    }
+  },
+  "image_urls": {
+    "delhi_mandi_hero": "https://images.pexels.com/photos/37904046/pexels-photo-37904046.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "vendor_portrait": "https://images.pexels.com/photos/32912937/pexels-photo-32912937.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "bustling_market": "https://images.unsplash.com/photo-1688013753619-deb0a2fd6fc5?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzh8MHwxfHNlYXJjaHwxfHxpbmRpYW4lMjB2ZWdldGFibGUlMjBtYXJrZXQlMjBkZWxoaSUyMHZlbmRvciUyMHNwaWNlc3xlbnwwfHx8fDE3ODk4MzI5MzF8MA&ixlib=rb-4.1.0&q=85",
+    "spices_fruits": "https://images.unsplash.com/photo-1538761052282-3f834b5e2be3?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzh8MHwxfHNlYXJjaHwyfHxpbmRpYW4lMjB2ZWdldGFibGUlMjBtYXJrZXQlMjBkZWxoaSUyMHZlbmRvciUyMHNwaWNlc3xlbnwwfHx8fDE3ODk4MzI5MzF8MA&ixlib=rb-4.1.0&q=85"
+  },
+  "testing_and_accessibility": {
+    "data_testid_convention": "kebab-case, role-based identifiers on every button, tab, card, and input element",
+    "required_test_ids": [
+      "demo-mode-toggle",
+      "market-pulse-card",
+      "vendor-signal-form",
+      "vendor-confirm-publish-button",
+      "shopper-chat-input",
+      "shopper-send-button",
+      "network-graph-container",
+      "ask-gemini-input"
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Build as React .js components inside /app/frontend/src/.",
+    "Use Lucide icons (lucide-react) across all nav and signal cards.",
+    "Ensure warm off-white background (#FDFBF7) and rounded cards with #E5DEC9 borders.",
+    "Always display 'Reported Price Signal' disclaimer rather than guaranteed price.",
+    "Implement multilingual prompt examples (Hindi, Hinglish, English) for the Shopper & Vendor sections.",
+    "Include the required data-testid attributes for automated testing verification."
+  ]
+}

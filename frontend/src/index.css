@@ -1,0 +1,97 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bm-bg: #FDFBF7;
+  --bm-bg-2: #F7F4EE;
+  --bm-card: #FFFFFF;
+  --bm-border: #E5DEC9;
+  --bm-ink: #1E2022;
+  --bm-muted: #5C6360;
+  --bm-green: #1E5631;
+  --bm-green-soft: #2D6A4F;
+  --bm-orange: #D96B27;
+  --bm-terra: #E07A5F;
+}
+
+@layer base {
+  :root {
+    --background: 40 43% 98%;
+    --foreground: 200 5% 13%;
+    --card: 0 0% 100%;
+    --card-foreground: 200 5% 13%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 200 5% 13%;
+    --primary: 140 49% 23%;
+    --primary-foreground: 40 43% 98%;
+    --secondary: 40 33% 95%;
+    --secondary-foreground: 200 5% 13%;
+    --muted: 40 33% 95%;
+    --muted-foreground: 160 4% 38%;
+    --accent: 40 33% 92%;
+    --accent-foreground: 200 5% 13%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 40 43% 98%;
+    --border: 46 35% 84%;
+    --input: 46 35% 84%;
+    --ring: 140 49% 23%;
+    --radius: 0.9rem;
+  }
+}
+
+* { border-color: hsl(var(--border)); }
+
+body {
+  margin: 0;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--bm-bg);
+  color: var(--bm-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, .font-display {
+  font-family: 'Outfit', sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.font-mono { font-family: 'JetBrains Mono', monospace; }
+
+::selection { background: rgba(30, 86, 49, 0.15); color: var(--bm-ink); }
+
+.bm-noise {
+  background-image: radial-gradient(rgba(30,86,49,0.04) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+.bm-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.bm-scroll::-webkit-scrollbar-thumb { background: var(--bm-border); border-radius: 8px; }
+
+@keyframes bm-pulse-ring {
+  0% { transform: scale(0.8); opacity: 0.7; }
+  70% { transform: scale(2.2); opacity: 0; }
+  100% { opacity: 0; }
+}
+.bm-pulse-ring::before {
+  content: ''; position: absolute; inset: 0; border-radius: 9999px;
+  background: currentColor; animation: bm-pulse-ring 1.8s ease-out infinite;
+}
+
+@keyframes bm-flow {
+  0% { stroke-dashoffset: 40; }
+  100% { stroke-dashoffset: 0; }
+}
+.bm-flow { stroke-dasharray: 6 6; animation: bm-flow 1.4s linear infinite; }
+
+@keyframes bm-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.bm-fade-up { animation: bm-fade-up 0.5s cubic-bezier(0.22,1,0.36,1) both; }
+
+@keyframes bm-blink {
+  0%, 100% { opacity: 0.3; } 50% { opacity: 1; }
+}
+.bm-blink { animation: bm-blink 1.2s ease-in-out infinite; }
