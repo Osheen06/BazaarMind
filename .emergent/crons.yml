@@ -1,9 +1,0 @@
-crons:
-  - name: capture-snapshot
-    description: "Captures a daily Market Snapshot per product so shoppers can compare today vs yesterday vs 7 days ago"
-    cron: "30 3 * * *"
-    timezone: "Asia/Kolkata"
-    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
-    endpoint: "{{BASE_URL}}/api/cron/capture-snapshot"
-    method: POST
-    enabled: true

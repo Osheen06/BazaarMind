@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: bazaarmind-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: MONGO_URL
+        sync: false
+      - key: DB_NAME
+        value: bazaarmind
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash-lite
+      - key: GEMINI_TRANSCRIBE_MODEL
+        value: gemini-3.5-transcribe
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: WEBHOOK_CRON_SECRET
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: META_APP_SECRET
+        sync: false
+      - key: META_GRAPH_VERSION
+        value: v25.0

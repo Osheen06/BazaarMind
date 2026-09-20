@@ -220,20 +220,52 @@ def _build_snapshot_history():
 
 async def seed_if_empty(db):
     existing = await db.markets.count_documents({})
+
     if existing == 0:
         await db.markets.insert_one({**DEMO_MARKET})
         await db.markets.insert_many([{**m} for m in EXTRA_MARKETS])
-        await db.vendors.insert_many([{**v, "marketId": DEMO_MARKET["id"]} for v in DEMO_VENDORS])
-        await db.products.insert_many([{**p, "id": p["name"].lower().replace(" ", "-")} for p in DEMO_PRODUCTS])
+        await db.vendors.insert_many([
+            {**v, "marketId": DEMO_MARKET["id"]}
+            for v in DEMO_VENDORS
+        ])
+        await db.products.insert_many([
+            {
+                **p,
+                "id": p["name"].lower().replace(" ", "-")
+            }
+            for p in DEMO_PRODUCTS
+        ])
 
-    sig_count = await db.market_signals.count_documents({"synthetic": True})
-    if sig_count == 0:
+    # Refresh only when the synthetic DEMO signal set has expired.
+    # Real PILOT data is never touched.
+    demo_filter = {
+        "marketId": DEMO_MARKET["id"],
+        "dataSource": "DEMO",
+        "synthetic": True,
+    }
+
+    now = datetime.now(timezone.utc)
+
+    active_demo = await db.market_signals.count_documents({
+        **demo_filter,
+        "status": "confirmed",
+        "expiresAt": {
+            "$gt": _iso(now)
+        },
+    })
+
+    if active_demo == 0:
+        await db.market_signals.delete_many(demo_filter)
         await db.market_signals.insert_many(_build_signals())
 
     snap_count = await db.market_snapshots.count_documents({})
+
     if snap_count == 0:
         await db.market_snapshots.insert_many(_build_snapshots())
 
-    hist_count = await db.snapshot_history.count_documents({"dataSource": "DEMO"})
+    hist_count = await db.snapshot_history.count_documents({
+        "dataSource": "DEMO"
+    })
+
     if hist_count == 0:
         await db.snapshot_history.insert_many(_build_snapshot_history())

@@ -11,6 +11,7 @@ import { interpretSignal, createSignal, getVendorDemand, listSignals, transcribe
 import { useApp } from "../context/AppContext";
 import { ListeningLoader } from "../components/Loading";
 import { Chip, ConfidenceBadge } from "../components/atoms";
+import VendorLocationCard from "../components/VendorLocationCard";
 
 const AVAIL = ["HIGH", "NORMAL", "LOW", "UNKNOWN"];
 const DEMAND = ["HIGH", "NORMAL", "LOW", "UNKNOWN"];
@@ -22,6 +23,7 @@ const EXAMPLES = [
 
 export default function Vendor() {
   const { marketId, refreshPulse, dataSource, participant } = useApp();
+  const [vendorLocation, setVendorLocation] = useState(null);
   const [mode, setMode] = useState("text");
   const [text, setText] = useState("");
   const [imageB64, setImageB64] = useState(null);
@@ -106,6 +108,8 @@ export default function Vendor() {
       const priceType = draft.reportedPrice != null;
       const res = await createSignal({
         marketId,
+        vendorId: vendorLocation?.vendorId || participant?.id || undefined,
+        dataSource,
         product: draft.product,
         signalType: draft.signalType || (priceType ? "PRICE" : "SUPPLY"),
         availability: draft.availability,
@@ -139,6 +143,15 @@ export default function Vendor() {
       <h1 className="font-display text-2xl md:text-3xl font-bold text-[#1E2022]">Help your market hear itself.</h1>
       <p className="text-sm text-[#5C6360] mt-1">Send what you're seeing at your stall. BazaarMind turns it into a market signal — you decide before it publishes.</p>
 
+      <div className="mb-5">
+        <VendorLocationCard
+          marketId={marketId}
+          dataSource={dataSource}
+          participant={participant}
+          onLocationChange={setVendorLocation}
+        />
+      </div>
+
       <div className="grid lg:grid-cols-[1fr_320px] gap-5 mt-5">
         {/* Composer */}
         <div className="bg-white border border-[#E5DEC9] rounded-2xl p-4 md:p-5" data-testid="vendor-signal-form">
@@ -162,16 +175,16 @@ export default function Vendor() {
                     <Mic className="h-6 w-6 relative" />
                   </button>
                   <div className="text-xs text-[#5C6360] mt-2">
-                    {transcribing ? "Transcribing with Whisper…"
+                    {transcribing ? "Transcribing with Gemini…"
                       : recording ? "Recording… tap to stop. Speak in Hindi / Hinglish / English."
-                      : "Tap to record a voice note. Server speech-to-text (Whisper) — works on any phone."}
+                      : "Tap to record a voice note. Gemini speech-to-text — works on supported browsers/devices."}
                   </div>
                   <div className="text-[10px] text-[#8A8A82] mt-1 flex items-center justify-center gap-1"><Zap className="h-3 w-3 text-[#1E5631]" />Your transcript is preserved and shown below, then BazaarMind interprets it automatically for your review.</div>
                 </>
               ) : (
                 <div className="text-sm text-[#B4571E]">
                   Microphone/speech-to-text isn't available here. Type your signal below instead — the same
-                  audio → Whisper → Gemini pipeline runs server-side in production.
+                  audio → Gemini transcription → Gemini signal interpretation runs server-side.
                 </div>
               )}
             </div>

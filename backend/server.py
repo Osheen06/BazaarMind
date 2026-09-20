@@ -5,6 +5,12 @@ import logging
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Dict, Any
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+
+logger = logging.getLogger("bazaarmind")
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Query, UploadFile, File, Header, BackgroundTasks
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -13,19 +19,10 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel
 
-ROOT_DIR = Path(__file__).parent
+ROOT_DIR = Path(__file__).resolve().parent
 load_dotenv(ROOT_DIR / ".env")
 
-import gemini_service
-import intelligence
-import demo_seed
-import whatsapp_service
-import voice_service
-import conversation
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-logger = logging.getLogger("bazaarmind")
-
+# Load environment before importing services that read configuration.
 mongo_url = os.environ["MONGO_URL"]
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ["DB_NAME"]]
@@ -35,8 +32,16 @@ WEBHOOK_CRON_SECRET = os.environ.get("WEBHOOK_CRON_SECRET", "")
 app = FastAPI(title="BazaarMind API")
 api = APIRouter(prefix="/api")
 
-DEFAULT_MARKET = demo_seed.DEMO_MARKET["id"]
+import location_routes
+import gemini_service
+import intelligence
+import demo_seed
+import whatsapp_service
+import voice_service
+import conversation
+import stall_routes
 
+DEFAULT_MARKET = demo_seed.DEMO_MARKET["id"]
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -118,6 +123,25 @@ async def _resolve_source_async(participant_id: Optional[str], explicit: Optiona
     return "DEMO"
 
 
+# ----------------------------- Health -----------------------------
+@app.get("/health")
+async def health():
+    try:
+        await db.command("ping")
+        mongo_ok = True
+    except Exception:
+        mongo_ok = False
+
+    return {
+        "ok": mongo_ok,
+        "service": "bazaarmind-api",
+        "geminiConfigured": bool(getattr(gemini_service, "GEMINI_API_KEY", "")),
+        "whatsappConfigured": whatsapp_service.is_configured(),
+        "voiceConfigured": voice_service.is_configured(),
+        "mongo": mongo_ok,
+    }
+
+
 # ----------------------------- Basic -----------------------------
 @api.get("/")
 async def root():
@@ -130,26 +154,172 @@ async def get_markets():
 
 
 @api.get("/markets/nearby")
-async def markets_nearby(lat: float = Query(...), lng: float = Query(...)):
-    markets = await db.markets.find({}, {"_id": 0}).to_list(100)
+async def markets_nearby(
+    lat: float = Query(...),
+    lng: float = Query(...),
+    dataSource: str = Query("DEMO"),
+    radiusKm: float = Query(25.0, ge=0.5, le=100.0),
+):
+    """
+    Resolve nearby BazaarMind markets from the user's current coordinates.
 
-    def haversine(a_lat, a_lng, b_lat, b_lng):
-        R = 6371.0
+    Location is used only to select market context.
+    It is NOT stored as a user profile location.
+
+    DEMO:
+      - synthetic markets are available for discovery
+      - only markets with DEMO intelligence are marked intelligenceAvailable
+
+    PILOT:
+      - only markets with actual pilot participants/signals are eligible
+      - no synthetic DEMO data is mixed into PILOT results
+    """
+
+    if dataSource not in ("DEMO", "PILOT", "REAL"):
+        dataSource = "DEMO"
+
+    # Basic coordinate validation.
+    if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid latitude or longitude.",
+        )
+
+    markets = await db.markets.find(
+        {},
+        {"_id": 0}
+    ).to_list(200)
+
+    def haversine_km(a_lat: float, a_lng: float, b_lat: float, b_lng: float) -> float:
+        earth_radius_km = 6371.0
+
         d_lat = math.radians(b_lat - a_lat)
         d_lng = math.radians(b_lng - a_lng)
-        h = (math.sin(d_lat / 2) ** 2 + math.cos(math.radians(a_lat)) *
-             math.cos(math.radians(b_lat)) * math.sin(d_lng / 2) ** 2)
-        return round(2 * R * math.asin(math.sqrt(h)), 1)
 
-    out = []
-    for m in markets:
-        if m.get("lat") is not None and m.get("lng") is not None:
-            m["distanceKm"] = haversine(lat, lng, m["lat"], m["lng"])
-        else:
-            m["distanceKm"] = None
-        out.append(m)
-    out.sort(key=lambda x: (x["distanceKm"] is None, x["distanceKm"] or 0))
-    return out
+        a = (
+            math.sin(d_lat / 2) ** 2
+            + math.cos(math.radians(a_lat))
+            * math.cos(math.radians(b_lat))
+            * math.sin(d_lng / 2) ** 2
+        )
+
+        return 2 * earth_radius_km * math.asin(math.sqrt(a))
+
+    nearby = []
+
+    for market in markets:
+        market_lat = market.get("lat")
+        market_lng = market.get("lng")
+
+        if market_lat is None or market_lng is None:
+            continue
+
+        distance = haversine_km(
+            lat,
+            lng,
+            float(market_lat),
+            float(market_lng),
+        )
+
+        if distance > radiusKm:
+            continue
+
+        market_id = market["id"]
+
+        # ---------------------------------------------------------
+        # Determine whether this market actually has intelligence.
+        # ---------------------------------------------------------
+
+        signal_query = {
+            "marketId": market_id,
+            "status": "confirmed",
+            "dataSource": dataSource,
+        }
+
+        if dataSource == "DEMO":
+            signal_query["synthetic"] = True
+
+        elif dataSource == "PILOT":
+            signal_query["synthetic"] = False
+
+        elif dataSource == "REAL":
+            signal_query["synthetic"] = False
+
+        signal_count = await db.market_signals.count_documents(signal_query)
+
+        # Check whether the market has active, non-expired signals.
+        now = datetime.now(timezone.utc).isoformat()
+
+        active_query = {
+            **signal_query,
+            "expiresAt": {"$gt": now},
+        }
+
+        active_signal_count = await db.market_signals.count_documents(
+            active_query
+        )
+
+        # Pilot participation count.
+        participant_count = await db.pilot_participants.count_documents(
+            {"marketId": market_id}
+        )
+
+        # A market has intelligence only when there are active signals.
+        intelligence_available = active_signal_count > 0
+
+        nearby.append({
+            "id": market_id,
+            "name": market.get("name", "BazaarMind Market"),
+            "area": market.get("area"),
+            "community": market.get("community"),
+            "lat": market_lat,
+            "lng": market_lng,
+
+            "distanceKm": round(distance, 2),
+
+            "dataSource": dataSource,
+
+            "synthetic": bool(market.get("synthetic", False)),
+
+            "signalCount": signal_count,
+            "activeSignalCount": active_signal_count,
+
+            "participantCount": participant_count,
+
+            "intelligenceAvailable": intelligence_available,
+
+            "discoveryOnly": not intelligence_available,
+        })
+
+    # Nearest first.
+    nearby.sort(key=lambda m: m["distanceKm"])
+
+    # Prefer the nearest market that actually has intelligence.
+    recommended = next(
+        (
+            market
+            for market in nearby
+            if market["intelligenceAvailable"]
+        ),
+        None,
+    )
+
+    return {
+        "ok": True,
+        "origin": {
+            "lat": lat,
+            "lng": lng,
+        },
+        "dataSource": dataSource,
+        "radiusKm": radiusKm,
+        "markets": nearby,
+        "recommendedMarketId": (
+            recommended["id"]
+            if recommended
+            else None
+        ),
+        "hasNearbyIntelligence": recommended is not None,
+    }
 
 
 @api.get("/products")
@@ -289,9 +459,10 @@ async def ask_bazaar(req: AskRequest):
 # ----------------------------- Voice (Whisper STT) -----------------------------
 @api.get("/voice/status")
 async def voice_status():
-    return {"configured": voice_service.is_configured(), "model": voice_service.WHISPER_MODEL,
-            "label": "Live speech-to-text (Whisper)" if voice_service.is_configured() else "Speech-to-text unavailable"}
-
+    return {
+        "configured": voice_service.is_configured(),
+        "model": voice_service.TRANSCRIBE_MODEL,
+    }
 
 @api.post("/voice/transcribe")
 async def voice_transcribe(audio: UploadFile = File(...)):
@@ -565,20 +736,49 @@ async def cron_capture_snapshot(background: BackgroundTasks, authorization: str 
     background.add_task(_capture_all_snapshots)
     return {"ok": True, "accepted": True, "runId": x_webhook_id}
 
+# Register location/discovery and vendor-stall routes exactly once.
+location_router = location_routes.build_router(db)
+api.include_router(location_router)
+
+stall_router = stall_routes.build_router(db)
+api.include_router(stall_router)
 
 app.include_router(api)
+
+# In production, set CORS_ORIGINS to the exact frontend origin(s),
+# comma-separated. Wildcard + credentials is intentionally avoided.
+_raw_cors = os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173")
+_cors_origins = [origin.strip().rstrip("/") for origin in _raw_cors.split(",") if origin.strip()]
+_cors_wildcard = "*" in _cors_origins
+
 app.add_middleware(
-    CORSMiddleware, allow_credentials=True,
-    allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
-    allow_methods=["*"], allow_headers=["*"],
+    CORSMiddleware,
+    allow_credentials=not _cors_wildcard,
+    allow_origins=_cors_origins,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
 @app.on_event("startup")
 async def _startup():
+    # Build indexes without making index failures fatal to application startup.
+    ensure_location_indexes = getattr(location_router, "ensure_indexes", None)
+    if ensure_location_indexes:
+        await ensure_location_indexes()
+
+    ensure_stall_indexes = getattr(stall_router, "ensure_indexes", None)
+    if ensure_stall_indexes:
+        await ensure_stall_indexes()
+
     await demo_seed.seed_if_empty(db)
-    logger.info("BazaarMind ready. Gemini=%s WhatsApp configured=%s Voice=%s",
-                gemini_service.GEMINI_MODEL, whatsapp_service.is_configured(), voice_service.is_configured())
+
+    logger.info(
+        "BazaarMind ready. Gemini=%s WhatsApp configured=%s Voice=%s",
+        gemini_service.GEMINI_MODEL,
+        whatsapp_service.is_configured(),
+        voice_service.is_configured(),
+    )
 
 
 @app.on_event("shutdown")

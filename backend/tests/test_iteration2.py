@@ -9,10 +9,10 @@ import time
 import pytest
 import requests
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://bazaar-intel-3.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "http://127.0.0.1:8000").rstrip("/")
 API = f"{BASE_URL}/api"
 TIMEOUT = 60
-CRON_SECRET = "bm_cron_9f3c1a7e42b84d6e8c05af17d93b2e6a"
+CRON_SECRET = os.environ.get("WEBHOOK_CRON_SECRET", "")
 
 _created_participant_ids = []
 _created_pilot_signal_ids = []

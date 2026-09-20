@@ -191,13 +191,18 @@ async def compute_market_pulse(db, market_id: str, data_source: str = None) -> D
         "totalSignals": len(signals),
         "lastUpdated": _humanize_minutes(_minutes_ago(last_updated)),
         "generatedAt": _now().isoformat(),
-        "synthetic": True,
+        "synthetic": data_source == "DEMO",
+        "dataSource": data_source or "ALL",
     }
 
 
 def build_pulse_context(pulse: Dict[str, Any], market_name: str) -> str:
     """Compact textual evidence used to ground the Ask BazaarMind answers."""
-    lines = [f"Market: {market_name} (Delhi NCR). Overall confidence: {pulse['overallConfidence']}."]
+    source = pulse.get("dataSource", "DEMO")
+    source_label = "synthetic DEMO signals" if source == "DEMO" else f"{source} signals"
+    lines = [
+        f"Market: {market_name} (Delhi NCR). Evidence source: {source_label}. Overall confidence: {pulse['overallConfidence']}."
+    ]
     for p in pulse["products"]:
         price = p["reportedPriceSignal"] or "no price reported"
         lines.append(
